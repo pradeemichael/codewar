@@ -1,0 +1,1134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Code War 2026 — Code Debugging Championship</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Exo+2:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #060a10;
+    --panel: #0d1520;
+    --border: #1a3a5c;
+    --accent: #00e5ff;
+    --accent2: #ff3e6c;
+    --accent3: #39ff14;
+    --text: #c8e6ff;
+    --dim: #4a6a8a;
+    --glow: 0 0 18px #00e5ff88;
+    --glow2: 0 0 18px #ff3e6c88;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Exo 2', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+    cursor: crosshair;
+  }
+
+  /* Animated grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,255,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    animation: gridShift 20s linear infinite;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  @keyframes gridShift {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(40px); }
+  }
+
+  /* Scanlines */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.15) 2px,
+      rgba(0,0,0,0.15) 4px
+    );
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .wrapper { position: relative; z-index: 2; }
+
+  /* ─── HEADER ─── */
+  header {
+    text-align: center;
+    padding: 40px 20px 20px;
+    position: relative;
+  }
+
+  .event-tag {
+    display: inline-block;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 4px;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    padding: 4px 16px;
+    margin-bottom: 16px;
+    text-transform: uppercase;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; box-shadow: var(--glow); }
+    50% { opacity: 0.6; box-shadow: none; }
+  }
+
+  h1 {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(2.4rem, 6vw, 5rem);
+    font-weight: 900;
+    letter-spacing: 4px;
+    line-height: 1;
+    background: linear-gradient(135deg, #00e5ff, #39ff14);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: none;
+    margin-bottom: 8px;
+  }
+
+  .subtitle {
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--accent2);
+    font-size: 14px;
+    letter-spacing: 3px;
+  }
+
+  /* Timer bar */
+  .timer-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    padding: 12px 20px;
+    background: rgba(0,229,255,0.05);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    margin: 20px 0;
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  .timer-label { color: var(--dim); font-size: 12px; letter-spacing: 2px; }
+
+  #timer-display {
+    font-family: 'Orbitron', monospace;
+    font-size: 2rem;
+    color: var(--accent3);
+    letter-spacing: 4px;
+    text-shadow: 0 0 20px var(--accent3);
+    min-width: 120px;
+    text-align: center;
+  }
+
+  #timer-display.warning { color: var(--accent2); text-shadow: 0 0 20px var(--accent2); animation: blinkRed 0.5s infinite; }
+  @keyframes blinkRed { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  .score-box {
+    font-family: 'Orbitron', monospace;
+    font-size: 1.1rem;
+    color: var(--accent);
+    border: 1px solid var(--border);
+    padding: 6px 18px;
+    letter-spacing: 2px;
+  }
+
+  /* ─── PROGRESS ─── */
+  .progress-track {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 20px;
+    flex-wrap: wrap;
+  }
+
+  .prog-dot {
+    width: 28px; height: 6px;
+    border-radius: 3px;
+    background: var(--border);
+    transition: background 0.3s;
+  }
+  .prog-dot.done { background: var(--accent3); box-shadow: 0 0 8px var(--accent3); }
+  .prog-dot.current { background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: pulse 1s infinite; }
+  .prog-dot.wrong { background: var(--accent2); box-shadow: 0 0 8px var(--accent2); }
+
+  /* ─── MAIN CONTENT ─── */
+  main {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 10px 20px 60px;
+  }
+
+  /* Question panel */
+  .question-panel {
+    border: 1px solid var(--border);
+    background: var(--panel);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 20px;
+    box-shadow: 0 0 30px rgba(0,229,255,0.06);
+  }
+
+  .panel-header {
+    background: rgba(0,229,255,0.07);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    color: var(--dim);
+    letter-spacing: 2px;
+  }
+
+  .q-type-badge {
+    font-size: 10px;
+    padding: 3px 10px;
+    border-radius: 2px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  .badge-mcq { background: rgba(0,229,255,0.15); color: var(--accent); border: 1px solid var(--accent); }
+  .badge-type { background: rgba(57,255,20,0.15); color: var(--accent3); border: 1px solid var(--accent3); }
+
+  .question-body { padding: 28px 28px 20px; }
+
+  .q-number {
+    font-family: 'Orbitron', monospace;
+    font-size: 11px;
+    color: var(--accent2);
+    letter-spacing: 3px;
+    margin-bottom: 10px;
+  }
+
+  .q-text {
+    font-size: 1.05rem;
+    line-height: 1.7;
+    color: #e0f0ff;
+    margin-bottom: 22px;
+  }
+
+  /* Code block */
+  .code-block {
+    background: #050c15;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    padding: 18px 20px;
+    border-radius: 3px;
+    margin-bottom: 24px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13.5px;
+    line-height: 1.9;
+    color: #b0d8ff;
+    overflow-x: auto;
+    position: relative;
+  }
+
+  .code-block .line-num { color: var(--dim); margin-right: 14px; user-select: none; }
+  .code-block .err { color: var(--accent2); text-decoration: underline wavy var(--accent2); }
+  .code-block .kw { color: #569cd6; }
+  .code-block .fn { color: var(--accent3); }
+  .code-block .str { color: #ce9178; }
+  .code-block .cmt { color: #4a6a5a; font-style: italic; }
+  .code-block .num { color: #b5cea8; }
+
+  /* MCQ options */
+  .options-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  @media(max-width: 560px) { .options-grid { grid-template-columns: 1fr; } }
+
+  .option-btn {
+    background: rgba(0,229,255,0.04);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 14px 18px;
+    text-align: left;
+    border-radius: 3px;
+    cursor: pointer;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    transition: all 0.2s;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    line-height: 1.5;
+  }
+
+  .option-btn:hover:not(:disabled) {
+    border-color: var(--accent);
+    background: rgba(0,229,255,0.1);
+    box-shadow: var(--glow);
+    transform: translateX(3px);
+  }
+
+  .option-btn .opt-key {
+    font-family: 'Orbitron', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    padding: 2px 7px;
+    border-radius: 2px;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .option-btn.correct {
+    border-color: var(--accent3);
+    background: rgba(57,255,20,0.12);
+    box-shadow: 0 0 12px rgba(57,255,20,0.3);
+  }
+
+  .option-btn.wrong {
+    border-color: var(--accent2);
+    background: rgba(255,62,108,0.12);
+  }
+
+  .option-btn:disabled { cursor: not-allowed; transform: none; }
+
+  /* Typing input */
+  .type-input-wrap {
+    position: relative;
+    margin-bottom: 20px;
+  }
+
+  .type-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--dim);
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+  }
+
+  .type-input {
+    width: 100%;
+    background: #050c15;
+    border: 1px solid var(--border);
+    color: var(--accent3);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 15px;
+    padding: 14px 18px;
+    border-radius: 3px;
+    outline: none;
+    letter-spacing: 1px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    caret-color: var(--accent3);
+  }
+
+  .type-input:focus {
+    border-color: var(--accent3);
+    box-shadow: 0 0 14px rgba(57,255,20,0.2);
+  }
+
+  .type-input.correct-input { border-color: var(--accent3); background: rgba(57,255,20,0.06); }
+  .type-input.wrong-input { border-color: var(--accent2); background: rgba(255,62,108,0.06); animation: shake 0.3s; }
+
+  @keyframes shake {
+    0%,100%{transform:translateX(0)}
+    25%{transform:translateX(-6px)}
+    75%{transform:translateX(6px)}
+  }
+
+  .type-hint {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--dim);
+    margin-top: 6px;
+  }
+
+  /* Submit button */
+  .submit-btn {
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: 'Orbitron', monospace;
+    font-size: 12px;
+    letter-spacing: 3px;
+    padding: 12px 32px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    display: block;
+    margin-left: auto;
+  }
+
+  .submit-btn:hover:not(:disabled) {
+    background: var(--accent);
+    color: var(--bg);
+    box-shadow: var(--glow);
+  }
+
+  .submit-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Feedback */
+  .feedback {
+    display: none;
+    margin-top: 16px;
+    padding: 12px 18px;
+    border-radius: 3px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  .feedback.show { display: block; }
+  .feedback.ok { background: rgba(57,255,20,0.1); border: 1px solid var(--accent3); color: var(--accent3); }
+  .feedback.bad { background: rgba(255,62,108,0.1); border: 1px solid var(--accent2); color: var(--accent2); }
+
+  /* Next button */
+  .next-btn {
+    display: none;
+    background: var(--accent);
+    border: none;
+    color: var(--bg);
+    font-family: 'Orbitron', monospace;
+    font-size: 12px;
+    letter-spacing: 3px;
+    padding: 14px 36px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    margin: 16px auto 0;
+    box-shadow: var(--glow);
+  }
+
+  .next-btn:hover { background: #39eeff; box-shadow: 0 0 30px #00e5ff; }
+  .next-btn.show { display: block; }
+
+  /* ─── RESULT SCREEN ─── */
+  #result-screen {
+    display: none;
+    text-align: center;
+    padding: 60px 20px;
+  }
+
+  #result-screen.show { display: block; }
+
+  .result-rank {
+    font-family: 'Orbitron', monospace;
+    font-size: 80px;
+    font-weight: 900;
+    line-height: 1;
+    margin-bottom: 10px;
+  }
+
+  .result-rank.s { color: var(--accent3); text-shadow: 0 0 40px var(--accent3); }
+  .result-rank.a { color: var(--accent); text-shadow: 0 0 40px var(--accent); }
+  .result-rank.b { color: #ffd700; text-shadow: 0 0 40px #ffd700; }
+  .result-rank.c { color: var(--accent2); text-shadow: 0 0 40px var(--accent2); }
+
+  .result-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 1.4rem;
+    letter-spacing: 4px;
+    margin-bottom: 30px;
+  }
+
+  .result-stats {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    flex-wrap: wrap;
+    margin-bottom: 40px;
+  }
+
+  .stat-box {
+    border: 1px solid var(--border);
+    padding: 20px 30px;
+    background: var(--panel);
+    min-width: 120px;
+  }
+
+  .stat-val {
+    font-family: 'Orbitron', monospace;
+    font-size: 2rem;
+    color: var(--accent);
+  }
+
+  .stat-lbl {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--dim);
+    letter-spacing: 2px;
+    margin-top: 4px;
+  }
+
+  /* Overlay for warnings */
+  .overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 1000;
+    justify-content: center;
+    align-items: center;
+    backdrop-filter: blur(6px);
+  }
+
+  .overlay.show { display: flex; }
+
+  .overlay-box {
+    border: 2px solid var(--accent2);
+    background: #0a0f1a;
+    padding: 40px 50px;
+    text-align: center;
+    max-width: 480px;
+    box-shadow: 0 0 60px rgba(255,62,108,0.4);
+    animation: popIn 0.3s cubic-bezier(0.175,0.885,0.32,1.275);
+  }
+
+  @keyframes popIn {
+    from { transform: scale(0.8) translateY(-20px); opacity: 0; }
+    to { transform: scale(1) translateY(0); opacity: 1; }
+  }
+
+  .overlay-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+  }
+
+  .overlay-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 1.3rem;
+    color: var(--accent2);
+    letter-spacing: 3px;
+    margin-bottom: 12px;
+  }
+
+  .overlay-msg {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    color: var(--dim);
+    line-height: 1.8;
+    margin-bottom: 24px;
+  }
+
+  .overlay-btn {
+    background: var(--accent2);
+    border: none;
+    color: #fff;
+    font-family: 'Orbitron', monospace;
+    font-size: 12px;
+    letter-spacing: 2px;
+    padding: 12px 30px;
+    cursor: pointer;
+    text-transform: uppercase;
+  }
+
+  /* Violation counter */
+  .violation-bar {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 20px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--dim);
+    letter-spacing: 1px;
+  }
+
+  .vio-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--border);
+    transition: background 0.3s;
+  }
+  .vio-dot.lit { background: var(--accent2); box-shadow: 0 0 6px var(--accent2); }
+
+  /* Floating corner info */
+  .corner-info {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--dim);
+    text-align: right;
+    line-height: 1.8;
+    z-index: 10;
+  }
+
+  /* Start screen */
+  #start-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+    text-align: center;
+    padding: 40px 20px;
+  }
+
+  .start-info {
+    max-width: 600px;
+    margin: 24px 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+  }
+
+  .info-card {
+    border: 1px solid var(--border);
+    background: var(--panel);
+    padding: 18px;
+    border-radius: 3px;
+  }
+
+  .info-card-icon { font-size: 24px; margin-bottom: 8px; }
+  .info-card-title { font-family: 'Orbitron', monospace; font-size: 11px; color: var(--accent); letter-spacing: 2px; margin-bottom: 6px; }
+  .info-card-text { font-size: 12px; color: var(--dim); line-height: 1.6; }
+
+  .start-btn {
+    background: transparent;
+    border: 2px solid var(--accent3);
+    color: var(--accent3);
+    font-family: 'Orbitron', monospace;
+    font-size: 14px;
+    letter-spacing: 4px;
+    padding: 16px 50px;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-transform: uppercase;
+    margin-top: 10px;
+    animation: borderPulse 2s infinite;
+  }
+
+  @keyframes borderPulse {
+    0%,100% { box-shadow: 0 0 12px rgba(57,255,20,0.3); }
+    50% { box-shadow: 0 0 30px rgba(57,255,20,0.7); }
+  }
+
+  .start-btn:hover {
+    background: var(--accent3);
+    color: var(--bg);
+    box-shadow: 0 0 40px var(--accent3);
+  }
+
+  .rules-list {
+    text-align: left;
+    max-width: 500px;
+    margin: 20px auto 0;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    color: var(--dim);
+    line-height: 2;
+  }
+
+  .rules-list li { list-style: none; padding-left: 18px; position: relative; }
+  .rules-list li::before { content: '▸'; position: absolute; left: 0; color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- HEADER -->
+  <header>
+    <div class="event-tag">⚡ LIVE EVENT — CODE WAR 2026</div>
+    <h1>CODE WAR</h1>
+    <div class="subtitle">CODE DEBUGGING CHAMPIONSHIP</div>
+  </header>
+
+  <!-- START SCREEN -->
+  <div id="start-screen">
+    <div class="start-info">
+      <div class="info-card">
+        <div class="info-card-icon">🧩</div>
+        <div class="info-card-title">MCQ Round</div>
+        <div class="info-card-text">7 questions — spot the bug and pick the correct fix.</div>
+      </div>
+      <div class="info-card">
+        <div class="info-card-icon">⌨️</div>
+        <div class="info-card-title">Type Round</div>
+        <div class="info-card-text">3 questions — type the exact corrected answer.</div>
+      </div>
+      <div class="info-card">
+        <div class="info-card-icon">⏱️</div>
+        <div class="info-card-title">Timed</div>
+        <div class="info-card-text">2 minutes per question. Speed and accuracy matter.</div>
+      </div>
+    </div>
+    <ul class="rules-list">
+      <li>Tab switching and new windows are strictly monitored</li>
+      <li>3 violations = automatic disqualification</li>
+      <li>Each correct answer = 10 points</li>
+      <li>2 minutes per question. Speed bonus on final score</li>
+      <li>10 questions total (7 MCQ + 3 Typing)</li>
+    </ul>
+    <button class="start-btn" onclick="startExam()">▶ BEGIN CHALLENGE</button>
+  </div>
+
+  <!-- EXAM WRAPPER -->
+  <div id="exam-wrapper" style="display:none;">
+    <!-- Timer + Score -->
+    <div class="timer-bar">
+      <span class="timer-label">TIME REMAINING</span>
+      <div id="timer-display">00:30</div>
+      <div class="score-box">SCORE: <span id="score-val">0</span></div>
+    </div>
+
+    <!-- Violation tracker -->
+    <div class="violation-bar">
+      <span>INTEGRITY MONITOR:</span>
+      <div class="vio-dot" id="v1"></div>
+      <div class="vio-dot" id="v2"></div>
+      <div class="vio-dot" id="v3"></div>
+      <span id="vio-text">CLEAN</span>
+    </div>
+
+    <!-- Progress -->
+    <div class="progress-track" id="progress-track"></div>
+
+    <!-- Question container -->
+    <main id="q-container"></main>
+
+    <!-- Corner -->
+    <div class="corner-info">
+      CODE WAR 2026<br>
+      PROCTORED SESSION<br>
+      <span id="q-counter">Q 1 / 10</span>
+    </div>
+  </div>
+
+  <!-- RESULT SCREEN -->
+  <div id="result-screen">
+    <div class="result-rank" id="rank-letter">S</div>
+    <div class="result-title" id="rank-title">MASTER DEBUGGER</div>
+    <div class="result-stats">
+      <div class="stat-box"><div class="stat-val" id="r-score">0</div><div class="stat-lbl">SCORE</div></div>
+      <div class="stat-box"><div class="stat-val" id="r-correct">0</div><div class="stat-lbl">CORRECT</div></div>
+      <div class="stat-box"><div class="stat-val" id="r-time">0s</div><div class="stat-lbl">AVG TIME</div></div>
+      <div class="stat-box"><div class="stat-val" id="r-violations">0</div><div class="stat-lbl">VIOLATIONS</div></div>
+    </div>
+    <button class="start-btn" onclick="location.reload()">↺ TRY AGAIN</button>
+  </div>
+
+</div>
+
+<!-- WARNING OVERLAY -->
+<div class="overlay" id="warning-overlay">
+  <div class="overlay-box">
+    <div class="overlay-icon">⚠️</div>
+    <div class="overlay-title">VIOLATION DETECTED</div>
+    <div class="overlay-msg" id="overlay-msg">
+      Attempting to switch tabs or open new windows<br>is strictly prohibited during this examination.
+    </div>
+    <button class="overlay-btn" onclick="dismissWarning()">ACKNOWLEDGE & RETURN</button>
+  </div>
+</div>
+
+<script>
+// ─── ANTI-ESCAPE SECURITY ───
+let violations = 0;
+const MAX_VIOLATIONS = 3;
+let examActive = false;
+
+function triggerViolation(msg) {
+  if (!examActive) return;
+  violations++;
+  document.getElementById('overlay-msg').innerHTML = msg + '<br><br>Violation ' + violations + ' of ' + MAX_VIOLATIONS + '. Third violation = disqualification.';
+  document.getElementById('warning-overlay').classList.add('show');
+  updateViolationDots();
+  if (violations >= MAX_VIOLATIONS) {
+    document.getElementById('overlay-msg').innerHTML = '⛔ You have reached <strong>3 violations</strong>.<br>You are disqualified from this round.';
+    document.querySelector('.overlay-btn').textContent = 'VIEW RESULTS';
+    document.querySelector('.overlay-btn').onclick = () => { document.getElementById('warning-overlay').classList.remove('show'); endExam(true); };
+  }
+}
+
+function updateViolationDots() {
+  for (let i = 1; i <= 3; i++) {
+    document.getElementById('v' + i).classList.toggle('lit', i <= violations);
+  }
+  const labels = ['CLEAN', 'WARNING', 'CRITICAL', 'DISQUALIFIED'];
+  document.getElementById('vio-text').textContent = labels[violations] || 'DISQUALIFIED';
+}
+
+function dismissWarning() {
+  if (violations >= MAX_VIOLATIONS) return;
+  document.getElementById('warning-overlay').classList.remove('show');
+}
+
+// Block new tab / window
+window.open = function() {
+  triggerViolation('Attempt to open a new window was blocked.<br>All activity is logged.');
+  return null;
+};
+
+// Detect visibility change (tab switch)
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) triggerViolation('Tab switch detected!<br>Do not leave this tab during the examination.');
+});
+
+// Block right-click
+document.addEventListener('contextmenu', e => { if (examActive) e.preventDefault(); });
+
+// Block F5 / common shortcuts
+document.addEventListener('keydown', e => {
+  if (!examActive) return;
+  // Block F5 refresh, Ctrl+R, Ctrl+W, Ctrl+T, Ctrl+N, Alt+F4
+  if (e.key === 'F5' || (e.ctrlKey && ['r','w','t','n'].includes(e.key.toLowerCase())) || (e.altKey && e.key === 'F4')) {
+    e.preventDefault();
+    triggerViolation('Keyboard shortcut <kbd>' + (e.ctrlKey ? 'Ctrl+' : e.altKey ? 'Alt+' : '') + e.key + '</kbd> is not allowed during the exam.');
+  }
+});
+
+// Block beforeunload
+window.addEventListener('beforeunload', e => {
+  if (examActive) { e.preventDefault(); e.returnValue = ''; }
+});
+
+// Blur = potential tab switch
+window.addEventListener('blur', () => {
+  if (examActive) triggerViolation('Window focus lost.<br>Switching away from this page is not allowed.');
+});
+
+// ─── QUESTIONS DATA ───
+const questions = [
+  // ── MCQ 1 ──
+  {
+    type: 'mcq',
+    title: 'Q1 — Python Print',
+    code: `<span class="line-num">1</span><span class="err">print "Hello, World!"</span>`,
+    question: 'This Python 3 code gives a <code style="color:var(--accent2)">SyntaxError</code>. What is the correct fix?',
+    options: ['print("Hello, World!")', 'Print("Hello, World!")', 'echo "Hello, World!"', 'printf("Hello, World!")'],
+    correct: 0,
+    explanation: 'In Python 3, <strong>print</strong> is a function — it needs parentheses: <strong>print("Hello, World!")</strong>.'
+  },
+  // ── MCQ 2 — shuffled: correct = index 2 (C) ──
+  {
+    type: 'mcq',
+    title: 'Q2 — Variable Naming',
+    code: `<span class="line-num">1</span><span class="err">2name</span> = <span class="str">"Alice"</span>\n<span class="line-num">2</span><span class="fn">print</span>(<span class="err">2name</span>)`,
+    question: 'This code throws a <code style="color:var(--accent2)">SyntaxError</code>. Why is <code>2name</code> an invalid variable name?',
+    options: ['Variable names can\'t have letters', 'Strings must use single quotes', 'Variable names cannot start with a number', 'print needs parentheses here'],
+    correct: 2,
+    explanation: 'In Python, variable names must <strong>start with a letter or underscore</strong>, never a digit. Use <strong>name = "Alice"</strong> instead.'
+  },
+  // ── MCQ 3 — shuffled: correct = index 3 (D) ──
+  {
+    type: 'mcq',
+    title: 'Q3 — Missing Colon',
+    code: `<span class="line-num">1</span>x = <span class="num">10</span>\n<span class="line-num">2</span><span class="kw">if</span> x > <span class="num">5</span><span class="err"> </span>\n<span class="line-num">3</span>    <span class="fn">print</span>(<span class="str">"big"</span>)`,
+    question: 'Line 2 causes a <code style="color:var(--accent2)">SyntaxError</code>. What is missing?',
+    options: ['Brackets around x > 5', 'Indentation on line 3', 'Quotation marks around big', 'A colon : at the end of line 2'],
+    correct: 3,
+    explanation: 'Python <strong>if</strong> statements must end with a colon <strong>:</strong> — write <strong>if x > 5:</strong>'
+  },
+  // ── MCQ 4 — shuffled: correct = index 0 (A) ──
+  {
+    type: 'mcq',
+    title: 'Q4 — Wrong Operator',
+    code: `<span class="line-num">1</span>a = <span class="num">5</span>\n<span class="line-num">2</span>b = <span class="num">3</span>\n<span class="line-num">3</span><span class="fn">print</span>(a <span class="err">= =</span> b)  <span class="cmt"># SyntaxError</span>`,
+    question: 'There is a space inside the equality operator on line 3. What is the correct operator?',
+    options: ['== (no space)', '= (single equals)', '=== (triple equals)', ':= (walrus)'],
+    correct: 0,
+    explanation: 'The equality comparison operator in Python is <strong>==</strong> with no space. A single <strong>=</strong> is assignment, not comparison.'
+  },
+  // ── MCQ 5 — shuffled: correct = index 2 (C) ──
+  {
+    type: 'mcq',
+    title: 'Q5 — List Index',
+    code: `<span class="line-num">1</span>fruits = [<span class="str">"apple"</span>, <span class="str">"banana"</span>, <span class="str">"mango"</span>]\n<span class="line-num">2</span><span class="fn">print</span>(fruits[<span class="err">3</span>])  <span class="cmt"># IndexError</span>`,
+    question: 'The list has 3 items but we access index 3. What is the last valid index?',
+    options: ['3', '0', '2', '1'],
+    correct: 2,
+    explanation: 'Python lists are <strong>zero-indexed</strong>. A list of 3 items has indices <strong>0, 1, 2</strong>. The last valid index is <strong>2</strong>.'
+  },
+  // ── MCQ 6 — shuffled: correct = index 2 (C) ──
+  {
+    type: 'mcq',
+    title: 'Q6 — Infinite Loop',
+    code: `<span class="line-num">1</span>i = <span class="num">0</span>\n<span class="line-num">2</span><span class="kw">while</span> i < <span class="num">5</span>:\n<span class="line-num">3</span>    <span class="fn">print</span>(i)\n<span class="line-num">4</span>    <span class="cmt"># i never changes!</span>`,
+    question: 'This code loops forever. Which line should be added inside the loop to fix it?',
+    options: ['break', 'continue', 'i += 1', 'i = 0'],
+    correct: 2,
+    explanation: 'We need <strong>i += 1</strong> to increment i each iteration so the condition <strong>i < 5</strong> eventually becomes False and the loop ends.'
+  },
+  // ── MCQ 7 — shuffled: correct = index 3 (D) ──
+  {
+    type: 'mcq',
+    title: 'Q7 — String Concatenation',
+    code: `<span class="line-num">1</span>age = <span class="num">20</span>\n<span class="line-num">2</span><span class="fn">print</span>(<span class="str">"I am "</span> + <span class="err">age</span> + <span class="str">" years old"</span>)`,
+    question: 'This causes a <code style="color:var(--accent2)">TypeError</code>. Which option correctly fixes the concatenation?',
+    options: ['age = int("20")', 'print(age + " years old")', 'print("I am " + age)', 'print("I am " + str(age) + " years old")'],
+    correct: 3,
+    explanation: '<strong>str(age)</strong> converts the integer to a string so it can be joined with the other string literals using <strong>+</strong>.'
+  },
+  // ── TYPING 8 — DSA: Binary Search bug (off-by-one + wrong mid formula) ──
+  {
+    type: 'type',
+    title: 'Q8 — DSA: Fix Binary Search',
+    code: `<span class="line-num">1</span><span class="kw">def</span> <span class="fn">binary_search</span>(arr, target):\n<span class="line-num">2</span>    low, high = <span class="num">0</span>, <span class="fn">len</span>(arr)\n<span class="line-num">3</span>    <span class="kw">while</span> low <span class="err"><</span> high:\n<span class="line-num">4</span>        mid = <span class="err">(low + high)</span>\n<span class="line-num">5</span>        <span class="kw">if</span> arr[mid] == target: <span class="kw">return</span> mid\n<span class="line-num">6</span>        <span class="kw">elif</span> arr[mid] <span class="err"><</span> target: low = mid\n<span class="line-num">7</span>        <span class="kw">else</span>: high = mid\n<span class="cmt"># Bug 1: high should be len(arr)-1\n# Bug 2: mid = (low+high)//2\n# Bug 3: low = mid+1 to avoid infinite loop</span>`,
+    question: '<strong style="color:var(--accent2)">3 bugs</strong> in this binary search — wrong <code>high</code> init, missing <code>//2</code> for mid, and <code>low = mid</code> causes infinite loop. Type lines 2, 4, and 6 corrected (separated by newlines):',
+    answer: '    low, high = 0, len(arr)-1\n        mid = (low + high) // 2\n        elif arr[mid] < target: low = mid + 1',
+    hint: 'Hint: high=len-1, mid needs //2, low must be mid+1'
+  },
+  // ── TYPING 9 — DSA: Linked List node insert (wrong pointer + missing None check) ──
+  {
+    type: 'type',
+    title: 'Q9 — DSA: Fix Linked List Insert',
+    code: `<span class="line-num">1</span><span class="kw">class</span> <span class="fn">Node</span>:\n<span class="line-num">2</span>    <span class="kw">def</span> <span class="fn">__init__</span>(self, data):\n<span class="line-num">3</span>        self.data = data\n<span class="line-num">4</span>        self.next = <span class="err">data</span>\n<span class="line-num">5</span><span class="kw">def</span> <span class="fn">insert</span>(head, val):\n<span class="line-num">6</span>    new_node = <span class="fn">Node</span>(val)\n<span class="line-num">7</span>    <span class="err">new_node = head</span>\n<span class="line-num">8</span>    <span class="kw">return</span> <span class="err">head</span>\n<span class="cmt"># Bug 1: self.next should be None\n# Bug 2: line 7 should link new_node.next = head\n# Bug 3: return new_node not head</span>`,
+    question: '<strong style="color:var(--accent2)">3 bugs</strong> — <code>self.next=data</code> should be <code>None</code>, line 7 should set <code>new_node.next = head</code>, and return must be <code>new_node</code>. Type corrected lines 4, 7, and 8:',
+    answer: '        self.next = None\n    new_node.next = head\n    return new_node',
+    hint: 'Hint: next=None, link new→head, return the new head node'
+  },
+  // ── TYPING 10 — DSA: Stack using list (pop on empty + wrong peek) ──
+  {
+    type: 'type',
+    title: 'Q10 — DSA: Fix Stack Operations',
+    code: `<span class="line-num">1</span><span class="kw">class</span> <span class="fn">Stack</span>:\n<span class="line-num">2</span>    <span class="kw">def</span> <span class="fn">__init__</span>(self): self.items = []\n<span class="line-num">3</span>    <span class="kw">def</span> <span class="fn">push</span>(self, x): self.items.<span class="fn">append</span>(x)\n<span class="line-num">4</span>    <span class="kw">def</span> <span class="fn">pop</span>(self): <span class="kw">return</span> self.items.<span class="fn">pop</span>(<span class="err">0</span>)\n<span class="line-num">5</span>    <span class="kw">def</span> <span class="fn">peek</span>(self): <span class="kw">return</span> self.items[<span class="err">0</span>]\n<span class="line-num">6</span>    <span class="kw">def</span> <span class="fn">is_empty</span>(self): <span class="kw">return</span> <span class="fn">len</span>(self.items) <span class="err">!= 0</span>\n<span class="cmt"># Bug 1: pop(0) removes front — stack pops from back\n# Bug 2: peek should return last item [-1]\n# Bug 3: is_empty should return len == 0</span>`,
+    question: '<strong style="color:var(--accent2)">3 bugs</strong> — <code>pop(0)</code> removes wrong end, <code>peek</code> returns wrong index, <code>is_empty</code> logic is inverted. Type corrected lines 4, 5, and 6:',
+    answer: '    def pop(self): return self.items.pop()\n    def peek(self): return self.items[-1]\n    def is_empty(self): return len(self.items) == 0',
+    hint: 'Hint: pop() no arg, peek[-1], is_empty == 0'
+  }
+];
+
+// ─── STATE ───
+let currentQ = 0;
+let score = 0;
+let answered = 0;
+let correctCount = 0;
+let timerInterval = null;
+let timeLeft = 30;
+let timings = [];
+let questionStart = 0;
+
+// ─── INIT ───
+function startExam() {
+  examActive = true;
+  document.getElementById('start-screen').style.display = 'none';
+  document.getElementById('exam-wrapper').style.display = 'block';
+  buildProgress();
+  showQuestion(0);
+}
+
+function buildProgress() {
+  const track = document.getElementById('progress-track');
+  track.innerHTML = '';
+  questions.forEach((_, i) => {
+    const d = document.createElement('div');
+    d.className = 'prog-dot' + (i === 0 ? ' current' : '');
+    d.id = 'prog-' + i;
+    track.appendChild(d);
+  });
+}
+
+function updateProgress(idx, state) {
+  const d = document.getElementById('prog-' + idx);
+  if (d) { d.className = 'prog-dot ' + state; }
+}
+
+function showQuestion(idx) {
+  currentQ = idx;
+  document.getElementById('q-counter').textContent = 'Q ' + (idx+1) + ' / ' + questions.length;
+  const q = questions[idx];
+  const container = document.getElementById('q-container');
+
+  const typeClass = q.type === 'mcq' ? 'badge-mcq' : 'badge-type';
+  const typeLabel = q.type === 'mcq' ? 'MCQ' : 'TYPING';
+
+  let bodyHTML = `
+    <div class="question-panel">
+      <div class="panel-header">
+        <span>${q.title}</span>
+        <span class="q-type-badge ${typeClass}">${typeLabel}</span>
+      </div>
+      <div class="question-body">
+        <div class="q-number">QUESTION ${idx+1} OF ${questions.length}</div>
+        <div class="code-block">${q.code}</div>
+        <div class="q-text">${q.question}</div>
+  `;
+
+  if (q.type === 'mcq') {
+    bodyHTML += `<div class="options-grid" id="opts">`;
+    const keys = ['A', 'B', 'C', 'D'];
+    q.options.forEach((opt, i) => {
+      bodyHTML += `<button class="option-btn" onclick="selectOption(${i})" id="opt-${i}">
+        <span class="opt-key">${keys[i]}</span><span>${opt}</span>
+      </button>`;
+    });
+    bodyHTML += `</div>`;
+  } else {
+    const isMultiline = q.answer.includes('\n');
+    bodyHTML += `
+      <div class="type-input-wrap">
+        <div class="type-label">▸ TYPE YOUR ANSWER BELOW${isMultiline ? ' &nbsp;<span style="color:var(--accent);font-size:10px;letter-spacing:1px">(ENTER = new line &nbsp;|&nbsp; Ctrl+Enter = submit)</span>' : ''}</div>
+        ${isMultiline
+          ? `<textarea class="type-input" id="type-ans" rows="3" placeholder="Type each corrected line on a new line..." spellcheck="false" autocomplete="off" style="resize:vertical;min-height:80px" onkeydown="if(event.ctrlKey&&event.key==='Enter')submitTyping()"></textarea>`
+          : `<input type="text" class="type-input" id="type-ans" placeholder="Type the corrected line..." spellcheck="false" autocomplete="off" onkeydown="if(event.key==='Enter')submitTyping()">`
+        }
+        <div class="type-hint">${q.hint}</div>
+      </div>
+      <button class="submit-btn" id="submit-btn" onclick="submitTyping()">SUBMIT ▸</button>
+    `;
+  }
+
+  bodyHTML += `
+        <div class="feedback" id="feedback"></div>
+        <button class="next-btn" id="next-btn" onclick="nextQuestion()">${idx < questions.length-1 ? 'NEXT QUESTION ▸' : 'VIEW RESULTS ▸'}</button>
+      </div>
+    </div>
+  `;
+
+  container.innerHTML = bodyHTML;
+  startTimer();
+  updateProgress(idx, 'current');
+  questionStart = Date.now();
+
+  if (q.type === 'type') {
+    setTimeout(() => document.getElementById('type-ans')?.focus(), 100);
+  }
+}
+
+// ─── TIMER ───
+function startTimer() {
+  clearInterval(timerInterval);
+  // Last 3 questions (index 7, 8, 9) are DSA — 5 minutes each; others get 2 minutes
+  timeLeft = currentQ >= 7 ? 300 : 120;
+  updateTimerDisplay();
+  timerInterval = setInterval(() => {
+    timeLeft--;
+    updateTimerDisplay();
+    if (timeLeft <= 0) {
+      clearInterval(timerInterval);
+      handleTimeout();
+    }
+  }, 1000);
+}
+
+function updateTimerDisplay() {
+  const el = document.getElementById('timer-display');
+  const mins = Math.floor(timeLeft / 60);
+  const secs = timeLeft % 60;
+  el.textContent = String(mins).padStart(2,'0') + ':' + String(secs).padStart(2,'0');
+  const warnThreshold = currentQ >= 7 ? 60 : 30;
+  el.className = timeLeft <= warnThreshold ? 'warning' : '';
+}
+
+function handleTimeout() {
+  const q = questions[currentQ];
+  updateProgress(currentQ, 'wrong');
+  timings.push(currentQ >= 7 ? 300 : 120);
+  if (q.type === 'mcq') {
+    document.querySelectorAll('.option-btn').forEach(b => b.disabled = true);
+    if (q.correct !== undefined) {
+      document.getElementById('opt-' + q.correct)?.classList.add('correct');
+    }
+  } else {
+    const inp = document.getElementById('type-ans');
+    if (inp) inp.disabled = true;
+    const sb = document.getElementById('submit-btn');
+    if (sb) sb.disabled = true;
+  }
+  showFeedback(false, '⏱ Time\'s up! ' + (q.explanation || ('Correct answer: ' + (q.answer || q.options[q.correct]))));
+  document.getElementById('next-btn')?.classList.add('show');
+}
+
+// ─── MCQ ───
+function selectOption(idx) {
+  clearInterval(timerInterval);
+  const q = questions[currentQ];
+  const elapsed = Math.round((Date.now() - questionStart) / 1000);
+  timings.push(elapsed);
+  document.querySelectorAll('.option-btn').forEach(b => b.disabled = true);
+  const correct = (idx === q.correct);
+  document.getElementById('opt-' + idx).classList.add(correct ? 'correct' : 'wrong');
+  if (!correct) document.getElementById('opt-' + q.correct)?.classList.add('correct');
+  if (correct) { const maxT = currentQ >= 7 ? 300 : 120; score += 10 + Math.max(0, (maxT - elapsed)); correctCount++; }
+  document.getElementById('score-val').textContent = score;
+  updateProgress(currentQ, correct ? 'done' : 'wrong');
+  showFeedback(correct, correct ? '✔ Correct! ' + q.explanation : '✘ Wrong. ' + q.explanation);
+  document.getElementById('next-btn')?.classList.add('show');
+}
+
+// ─── TYPING ───
+function normalizeAnswer(s) {
+  // Trim each line, collapse multiple spaces, lowercase for comparison
+  return s.split('\n').map(l => l.trim().replace(/\s+/g,' ')).join('\n').toLowerCase().trim();
+}
+
+function submitTyping() {
+  const q = questions[currentQ];
+  const inp = document.getElementById('type-ans');
+  if (!inp || inp.disabled) return;
+  clearInterval(timerInterval);
+  const elapsed = Math.round((Date.now() - questionStart) / 1000);
+  timings.push(elapsed);
+  const val = inp.value;
+  const correct = normalizeAnswer(val) === normalizeAnswer(q.answer);
+  inp.className = 'type-input ' + (correct ? 'correct-input' : 'wrong-input');
+  inp.disabled = true;
+  const sb = document.getElementById('submit-btn');
+  if (sb) sb.disabled = true;
+  if (correct) { const maxT = currentQ >= 7 ? 300 : 120; score += 10 + Math.max(0, (maxT - elapsed)); correctCount++; }
+  document.getElementById('score-val').textContent = score;
+  updateProgress(currentQ, correct ? 'done' : 'wrong');
+  const ansFormatted = q.answer.split('\n').map(l=>'<code style="color:var(--accent3);display:block">'+l+'</code>').join('');
+  showFeedback(correct, correct ? '✔ Correct! Great debugging.' : '✘ Incorrect. Expected:<br>' + ansFormatted);
+  document.getElementById('next-btn')?.classList.add('show');
+}
+
+function showFeedback(ok, msg) {
+  const fb = document.getElementById('feedback');
+  if (fb) { fb.innerHTML = msg; fb.className = 'feedback show ' + (ok ? 'ok' : 'bad'); }
+}
+
+// ─── NAVIGATION ───
+function nextQuestion() {
+  if (currentQ + 1 >= questions.length) {
+    endExam(false);
+  } else {
+    showQuestion(currentQ + 1);
+  }
+}
+
+function endExam(disqualified) {
+  examActive = false;
+  clearInterval(timerInterval);
+  document.getElementById('exam-wrapper').style.display = 'none';
+  document.getElementById('start-screen').style.display = 'none';
+  const rs = document.getElementById('result-screen');
+  rs.classList.add('show');
+  const avg = timings.length ? Math.round(timings.reduce((a,b)=>a+b,0)/timings.length) : 0;
+  document.getElementById('r-score').textContent = disqualified ? 'DQ' : score;
+  document.getElementById('r-correct').textContent = correctCount + '/' + questions.length;
+  document.getElementById('r-time').textContent = avg + 's';
+  document.getElementById('r-violations').textContent = violations;
+  const pct = correctCount / questions.length;
+  let rank, title, rankClass;
+  if (disqualified) { rank='DQ'; title='DISQUALIFIED'; rankClass='c'; }
+  else if (pct >= 0.9) { rank='S'; title='MASTER DEBUGGER'; rankClass='s'; }
+  else if (pct >= 0.7) { rank='A'; title='EXPERT DEBUGGER'; rankClass='a'; }
+  else if (pct >= 0.5) { rank='B'; title='SKILLED DEBUGGER'; rankClass='b'; }
+  else { rank='C'; title='KEEP PRACTICING'; rankClass='c'; }
+  const rl = document.getElementById('rank-letter');
+  rl.textContent = rank; rl.className = 'result-rank ' + rankClass;
+  document.getElementById('rank-title').textContent = title;
+}
+</script>
+</body>
+</html>
